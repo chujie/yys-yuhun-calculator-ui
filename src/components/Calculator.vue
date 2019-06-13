@@ -58,6 +58,10 @@
             <Form class="expect-options-form">
                 <FormItem class="input-item" label="伤害期望">
                     <Input placeholder="格式: 式神基础攻击,式神基础爆伤,期望伤害值" v-model="damageExpect" />
+                    <label>攻击加成: </label>
+                    <Select v-model="attackBuff">
+                        <Option v-for="attBuff in attackBuffs" :key="attBuff.name" :label="attBuff.name" :value="attBuff.value"></Option>
+                    </Select>
                 </FormItem>
                 <FormItem class="input-item" label="治疗期望">
                     <Input placeholder="格式: 式神基础生命,式神基础爆伤,期望治疗值" v-model="healthExpect" />
@@ -189,6 +193,18 @@ export default class Calculator extends Vue {
         return ['暴击', '暴击伤害', '效果命中', '效果抵抗', '速度', '攻击加成', '生命加成', '防御加成'];
     }
 
+    get attackBuffs(): object[] {
+        return [
+          {name: '无buff', value: 0},
+          {name: '不满级兔子舞', value: 10},
+          {name: '满级兔子舞', value: 20},
+          {name: '满级兄弟之绊', value: 25},
+          {name: '黑晴明+不满级兔子舞', value: 30},
+          {name: '黑晴明+满级兔子舞', value: 40},
+          {name: '黑晴明+满级兄弟之绊', value: 45},
+        ];
+    }
+
     /**
      * 是否禁用添加御魂套装按钮
      */
@@ -276,6 +292,10 @@ export default class Calculator extends Vue {
      * 伤害期望
      */
     private damageExpect = '';
+    /**
+     * 攻击加成
+     */
+    private attackBuff = '';
     /**
      * 生命期望
      */
@@ -414,11 +434,11 @@ export default class Calculator extends Vue {
      * 校验输入框格式
      */
     public verifyInputValue(): boolean {
-        if (this.damageExpect && !/^[0-9]+,[0-9]+,[0-9]+$/.test(this.damageExpect)) {
+        if (this.damageExpect && !/^[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?$/.test(this.damageExpect)) {
             Message.warning('"伤害期望" 格式错误');
             return false;
         }
-        if (this.healthExpect && !/^[0-9]+,[0-9]+,[0-9]+$/.test(this.healthExpect)) {
+        if (this.healthExpect && !/^[0-9]+,[0-9]+,[0-9]+(?:,[0-9]+)?$/.test(this.healthExpect)) {
             Message.warning('"治疗期望" 格式错误');
             return false;
         }
@@ -475,6 +495,7 @@ export default class Calculator extends Vue {
             attack_only: this.useAttack,
             effective_secondary_prop: this.effectiveAttributes || '',
             effective_secondary_prop_num: this.effectiveAttributesBonusCount || '',
+            attack_buff: this.attackBuff || 0,
         }, axiosOption).then((result) => {
             switch (result.status) {
                 case 500: {
@@ -498,7 +519,7 @@ export default class Calculator extends Vue {
             Message.error('计算失败');
         });
 
-        setTimeout(this.getClaculateStatus.bind(this), 500);
+        setTimeout(this.getCalculateStatus.bind(this), 500);
     }
 
     private mounted() {
@@ -527,12 +548,13 @@ export default class Calculator extends Vue {
         this.healthExpect = scheme.healthExpect;
         this.targetAttributeList = scheme.targetAttributeList;
         this.targetAttribute = '';
+        this.attackBuff = '';
     }
 
     /**
      * 获取计算进度
      */
-    private getClaculateStatus() {
+    private getCalculateStatus() {
         axios
             .get(apiRoot + '/status')
             .then((result) => {
@@ -542,7 +564,7 @@ export default class Calculator extends Vue {
                 }
                 this.calculateProgress = Math.floor(progress * 100);
                 if (progress !== 1) {
-                    setTimeout(this.getClaculateStatus.bind(this), 100);
+                    setTimeout(this.getCalculateStatus.bind(this), 100);
                 }
             })
             .catch(() => {
