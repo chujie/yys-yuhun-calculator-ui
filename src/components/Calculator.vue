@@ -6,7 +6,19 @@
         <section class="main">
             <Form class="filter-options-form">
                 <div class="yuhun-package-input">
-                    <p class="title">御魂套装组合</p>
+                    <Popover placement="right" trigger="hover" ref='presetYuhunSet'>
+                      <RadioGroup class="preset" size="mini" @change="onSelectPresetYuhun" v-model="presetYuhunPackageList">
+                        <RadioButton v-for="yuhunPackage in this.presetYuhunPackages"
+                        :label="yuhunPackage.value" :key="yuhunPackage.name"
+                        >
+                          {{ yuhunPackage.name }}
+                        </RadioButton>
+                      </RadioGroup>
+                    </Popover>
+                    <p class="title">
+                      御魂套装组合
+                      <Tag v-popover:presetYuhunSet title='常用'>+</Tag>
+                    </p>
                     <Select class="yuhun" v-model="yuhunPackage" placeholder="选择御魂套装">
                         <OptionGroup v-for="group in yuhunOptions" :key="group.name" :label="group.name">
                             <Option v-for="yuhun in group.list" :key="yuhun" :label="yuhun" :value="yuhun"></Option>
@@ -20,9 +32,18 @@
                 <FormItem>
                     <Checkbox v-model="usePackage" label="限定使用套装"></Checkbox>
                     <Checkbox v-model="useAttack" label="限定使用输出御魂"></Checkbox>
+                    <Popover placement="right" trigger="hover" ref='presetAttribute'>
+                      <RadioGroup class='preset' size="mini" @change="onSelectPresetAttribute" v-model="presetAttribute">
+                        <RadioButton v-for="attributePreset in this.presetAttributes"
+                        :label="attributePreset.value" :key="attributePreset.value"
+                        >
+                          {{ attributePreset.value }}
+                        </RadioButton>
+                      </RadioGroup>
+                    </Popover>
                 </FormItem>
                 <FormItem class="multi-checkbox">
-                    <p class="title">二号位属性</p>
+                    <p class="title">二号位属性<Tag v-popover:presetAttribute title='常用'>+</Tag></p>
                     <CheckboxGroup v-model="secondAttributeList" size="mini">
                         <CheckboxButton label="攻击加成"></CheckboxButton>
                         <CheckboxButton label="生命加成"></CheckboxButton>
@@ -67,8 +88,16 @@
                     <Input placeholder="格式: 式神基础生命,式神基础爆伤,期望治疗值" v-model="healthExpect" />
                 </FormItem>
                 <FormItem class="input-item" label="有效副属性">
-                    <Input placeholder="属性列表(以,分隔)  例如: 暴击,暴击伤害" v-model="effectiveAttributes" />
-                    <Input placeholder="各位置加成次数(以,分隔)  例如: 3,3,3,3,3,0" v-model="effectiveAttributesBonusCount" />
+                    <Autocomplete placeholder="属性列表(以,分隔)  例如: 暴击,暴击伤害" v-model="effectiveAttributes"
+                      popper-class="esp-autocomplete" :fetch-suggestions="queryEffectiveAttributes">
+                      <template slot-scope="{ item }">
+                        <span>{{ item.name }}</span>
+                        <span>&lt;{{ item.value }}&gt;</span>
+                      </template>
+                    </Autocomplete>
+                    <Autocomplete placeholder="各位置加成次数(以,分隔)  例如: 3,3,3,3,3,0" v-model="effectiveAttributesBonusCount"
+                      :fetch-suggestions="queryEffectiveAttributesBonusCount">
+                    </Autocomplete>
                 </FormItem>
                 <FormItem>
                     <p class="title">目标属性限制</p>
@@ -111,18 +140,24 @@ import {
     Form,
     FormItem,
     Button,
+    ButtonGroup,
     Select,
     Option,
     OptionGroup,
     CheckboxGroup,
     Checkbox,
     CheckboxButton,
+    Radio,
+    RadioButton,
+    RadioGroup,
     Input,
     InputNumber,
     Message,
     Tag,
     Notification,
     Dialog,
+    Autocomplete,
+    Popover,
 } from 'element-ui';
 import axios from 'axios';
 
@@ -136,22 +171,33 @@ const axiosOption = {
     },
 };
 
+interface Options {
+  name: string;
+  value: any;
+}
+
 @Component({
     components: {
         Form,
         FormItem,
         Button,
+        ButtonGroup,
         Select,
         Option,
         OptionGroup,
         CheckboxGroup,
         Checkbox,
         CheckboxButton,
+        Radio,
+        RadioButton,
+        RadioGroup,
         Input,
         InputNumber,
         Tag,
         Dialog,
         CustomScheme,
+        Autocomplete,
+        Popover,
     },
 })
 export default class Calculator extends Vue {
@@ -192,19 +238,68 @@ export default class Calculator extends Vue {
     get attributes(): string[] {
         return ['暴击', '暴击伤害', '效果命中', '效果抵抗', '速度', '攻击加成', '生命加成', '防御加成'];
     }
-
-    get attackBuffs(): object[] {
+    /**
+     * 攻击加成
+     */
+    get attackBuffs(): Options[] {
         return [
           {name: '无buff', value: 0},
-          {name: '不满级兔子舞', value: 10},
+          {name: '1级兔子舞', value: 10},
           {name: '满级兔子舞', value: 20},
           {name: '满级兄弟之绊', value: 25},
-          {name: '黑晴明+不满级兔子舞', value: 30},
+          {name: '黑晴明+1级兔子舞', value: 30},
           {name: '黑晴明+满级兔子舞', value: 40},
           {name: '黑晴明+满级兄弟之绊', value: 45},
         ];
     }
-
+    /**
+     * 预设常用246主属性
+     */
+    get presetAttributes(): Options[] {
+        return [
+          {name: '攻攻暴', value: '攻攻暴'},
+          {name: '速攻暴', value: '速攻暴'},
+          {name: '生生暴', value: '生生暴'},
+          {name: '速生暴', value: '速生暴'},
+          {name: '速命生', value: '速命生'},
+          {name: '速抗生', value: '速抗生'},
+        ];
+    }
+    /**
+     * 预设常用246主属性
+     */
+    get presetYuhunPackages(): Options[] {
+        return [
+          {name: '破荒', value: ['破势,4', '荒骷髅,2']},
+          {name: '心荒', value: ['心眼,4', '荒骷髅,2']},
+          {name: '狂荒', value: ['狂骨,4', '荒骷髅,2']},
+          {name: '针荒', value: ['针女,4', '荒骷髅,2']},
+          {name: '散件生命', value: ['生命加成,2', '生命加成,2', '生命加成,2']},
+        ];
+    }
+    /**
+     * 有效属性
+     */
+    get effectiveAttributesChoices(): Options[] {
+      return [
+        {name: '输出', value: '暴击,暴击伤害,攻击加成,速度'},
+        {name: '奶盾', value: '暴击,暴击伤害,生命加成,速度'},
+        {name: '命中', value: '效果命中,速度'},
+        {name: '抵抗', value: '效果抵抗,速度'},
+        {name: '双堆', value: '速度,效果命中,效果抵抗'},
+      ];
+    }
+    /**
+     * 有效属性
+     */
+    get effectiveAttributesBonusCountChoices(): Options[] {
+      return [
+        {name: '1', value: '1,1,1,1,1,0'},
+        {name: '2', value: '3,3,3,3,3,1'},
+        {name: '3', value: '3,2,3,2,3,0'},
+        {name: '4', value: '5,3,5,3,5,1'},
+      ];
+    }
     /**
      * 是否禁用添加御魂套装按钮
      */
@@ -260,6 +355,10 @@ export default class Calculator extends Vue {
      * 御魂套装限制列表
      */
     private yuhunPackageList: string[] = [];
+    /**
+     * 预设御魂套装限制列表
+     */
+    private presetYuhunPackageList: string[] = [];
 
     /**
      * 是否使用套装
@@ -282,7 +381,10 @@ export default class Calculator extends Vue {
      * 六号位属性
      */
     private sixthAttributeList: string[] = [];
-
+    /**
+     * 选中的预设常用246主属性
+     */
+    private presetAttribute: string = '';
     /**
      * 忽略指定关键字御魂
      */
@@ -584,6 +686,50 @@ export default class Calculator extends Vue {
             }
         }).join('.');
     }
+
+    /**
+     * 根据用户输入过滤有效属性
+     */
+    private queryEffectiveAttributes(queryString: string, cb: (arg0: any[]) => void) {
+      let results = this.effectiveAttributesChoices;
+      if (queryString) {
+        results = results.filter((choice: Options) =>
+          (choice.name.toLowerCase().indexOf(queryString.toLowerCase()) === 0 ||
+          choice.value.toLowerCase().indexOf(queryString.toLowerCase()) === 0)
+        , );
+      }
+      return cb(results);
+    }
+    /**
+     * 根据用户输入过滤有效属性条数
+     */
+    private queryEffectiveAttributesBonusCount(queryString: string, cb: (arg0: any[]) => void) {
+      let results = this.effectiveAttributesBonusCountChoices;
+      if (queryString) {
+        results = results.filter((choice: Options) => choice.value.indexOf(queryString.toLowerCase()) !== -1);
+      }
+      return cb(results);
+    }
+    /**
+     * 预设属性选择快捷按钮
+     */
+    private onSelectPresetAttribute(label: string): void {
+      const l2p: {[key: string]: string[]} = {生: ['生命加成'], 攻: ['攻击加成'], 暴: ['暴击', '暴击伤害'],
+                 命: ['效果命中'], 抗: ['效果抵抗'], 速: ['速度']};
+      if (label.length === 3) {
+        const props = label.split('').map((x) => l2p[x]);
+        this.secondAttributeList = props[0];
+        this.fourthAttributeList = props[1];
+        this.sixthAttributeList = props[2];
+      }
+      return;
+    }
+    /**
+     * 预设御魂选择快捷按钮
+     */
+    private onSelectPresetYuhun(label: string): void {
+      this.yuhunPackageList = this.presetYuhunPackageList.slice();
+    }
 }
 </script>
 
@@ -712,6 +858,15 @@ export default class Calculator extends Vue {
                     user-select: none;
                 }
             }
+            .el-autocomplete {
+              width: 100%;
+            }
+            .esp-autocomplete {
+              span {
+                text-overflow: ellipsis;
+                overflow: hidden;
+              }
+            }
         }
         .el-icon-info {
             color: #ddd;
@@ -726,7 +881,48 @@ export default class Calculator extends Vue {
     .el-form-item {
         margin-bottom: 5px;
 
-        &.multi-checkbox {
+        .preset {
+          .el-radio-button {
+              &.is-active {
+                  .el-radio-button__inner {
+                      color: #fff;
+                      background-color: #409EFF;
+                      border-color: #409EFF;
+                      box-shadow: -1px 0 0 0 #8cc5ff;
+                  }
+              }
+          }
+          .el-radio-button__inner {
+              min-width: 50px;
+              padding: 7px 5px;
+              color: #fff;
+              background-color: #409EFF;
+              border: 1px solid #333b47;
+          }
+          .el-form-item__label {
+              // width: 50px;
+              padding: 0;
+              text-align: center;
+              line-height: 22px;
+          }
+          .el-form-item__content {
+              flex: 1;
+          }
+          .el-radio-group {
+              display: flex;
+              align-items: center;
+              justify-content: flex-start;
+              flex-wrap: wrap;
+              transform: translateY(-5px);
+          }
+          .el-radio {
+              margin-left: 10px;
+              height: 30px;
+          }
+
+        }
+
+        &.multi-checkbox, {
             .el-checkbox-button {
                 &.is-checked {
                     .el-checkbox-button__inner {
@@ -786,6 +982,16 @@ export default class Calculator extends Vue {
         color: #eee;
         line-height: 24px;
         font-size: 14px;
+
+        .el-tag {
+          background-color: inherit;
+          border: 0px;
+          transform: scale(1.5);
+          transition: transform .2s ease-in-out;
+        }
+        .el-tag:hover {
+          transform: scale(2) rotate(45deg);
+        }
     }
     .el-input-number__decrease, .el-input-number__increase {
         background-color: #11171f;
